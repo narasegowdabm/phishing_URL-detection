@@ -1,22 +1,25 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import pickle
-from feature_extractor import extract_features
-import pandas as pd
 import os
 import validators
-import requests  # For HTTP HEAD request
+import requests
+import pandas as pd
+from feature_extractor import extract_features
 
 app = Flask(__name__)
 CORS(app)
-
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# Load the pickled model (which expects raw URL input)
-model_path = "model/resmlp_phishing_model.pkl"  # Adjust path if needed
+# Load the pickled model with warning suppression
+import warnings
+from sklearn.exceptions import InconsistentVersionWarning
+warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+
+model_path = "model/resmlp_phishing_model.pkl"
 with open(model_path, 'rb') as f:
     model = pickle.load(f)
 print("Loaded pickled model from:", model_path)
@@ -27,10 +30,7 @@ def predict():
         url = request.form['url']
         print("Received URL:", url)
         
-        # Check if URL is really valid (syntactically + responds <400)
-        
-        
-        # Extract features for debugging (printed but not used for .pkl model)
+        # Extract features for debugging
         features = extract_features(url)
         print("Extracted features:")
         print(features)
@@ -72,7 +72,7 @@ def save():
     url = data.get('url', '')
     result = data.get('result', '')
 
-    file_path = 'results.xlsx'  # or any path you prefer
+    file_path = 'results.xlsx'
 
     # If file exists, load it. Otherwise, create a new DataFrame
     if os.path.exists(file_path):
@@ -90,5 +90,7 @@ def save():
     return jsonify({'message': 'Result saved successfully!'})
 
 if __name__ == '__main__':
-    # Make sure 'requests' is installed: pip install requests
-    app.run(debug=True)
+    # Get the port from the environment variable
+    port = int(os.environ.get('PORT', 5000))
+    # Bind to 0.0.0.0 to make it accessible from outside the container
+    app.run(host='0.0.0.0', port=port, debug=True)
