@@ -1,0 +1,94 @@
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
+import pickle
+from feature_extractor import extract_features
+import pandas as pd
+import os
+import validators
+import requests  # For HTTP HEAD request
+
+app = Flask(__name__)
+CORS(app)
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# Load the pickled model (which expects raw URL input)
+model_path = "model/resmlp_phishing_model.pkl"  # Adjust path if needed
+with open(model_path, 'rb') as f:
+    model = pickle.load(f)
+print("Loaded pickled model from:", model_path)
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        url = request.form['url']
+        print("Received URL:", url)
+        
+        # Check if URL is really valid (syntactically + responds <400)
+        
+        
+        # Extract features for debugging (printed but not used for .pkl model)
+        features = extract_features(url)
+        print("Extracted features:")
+        print(features)
+        
+        # Remove "http://" or "https://" if present for prediction
+        if url.lower().startswith("http://"):
+            new_url = url[len("http://"):]
+        elif url.lower().startswith("https://"):
+            new_url = url[len("https://"):]
+        else:
+            new_url = url
+        print("URL used for prediction (without scheme):", new_url)
+        
+        # Use the new URL (without the scheme) for prediction
+        prediction = model.predict([new_url])
+        predicted_value = prediction[0]
+        
+        # If the prediction is numeric, convert it; otherwise, use as is
+        try:
+            predicted_class = int(predicted_value)
+            result = "Phishing" if predicted_class == 1 else "Legitimate"
+        except ValueError:
+            result = predicted_value
+        
+        print("Prediction:", result)
+        return jsonify({'result': result})
+    
+    except Exception as e:
+        print("Error:", str(e))
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/save', methods=['POST'])
+def save():
+    """
+    Receives JSON with { "url": "...", "result": "..." }
+    Appends it to 'results.xlsx' (2 columns: URL, Result).
+    """
+    data = request.get_json()
+    url = data.get('url', '')
+    result = data.get('result', '')
+
+    file_path = 'results.xlsx'  # or any path you prefer
+
+    # If file exists, load it. Otherwise, create a new DataFrame
+    if os.path.exists(file_path):
+        df = pd.read_excel(file_path)
+    else:
+        df = pd.DataFrame(columns=['URL', 'Result'])
+
+    # Append new row using pd.concat
+    new_row = {'URL': url, 'Result': result}
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+
+    # Save back to Excel
+    df.to_excel(file_path, index=False)
+
+    return jsonify({'message': 'Result saved successfully!'})
+
+if __name__ == '__main__':
+    # Make sure 'requests' is installed: pip install requests
+    app.run(debug=True)

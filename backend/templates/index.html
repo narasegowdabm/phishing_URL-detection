@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phishing URL Analyzer</title>
+  <style>
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background: #f0f4f8;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .analyzer-container {
+      background: #fff;
+      border-radius: 12px;
+      padding: 60px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      width: 80%;
+      max-width: 1200px;
+      min-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 2.8em;
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 25px;
+    }
+
+    h2, h3 {
+      color: #546e7a;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+    }
+
+    p {
+      color: #111b1f;
+      line-height: 1.7;
+      margin-bottom: 30px;
+      font-size: 1.2em;
+    }
+
+    button, input[type="text"] {
+      padding: 14px 22px; /* Slightly smaller buttons */
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1em; /* Slightly smaller font in buttons */
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      width: 40%;
+      box-sizing: border-box;
+      font-weight: 600; /* Bold text in buttons for visibility */
+    }
+
+    button {
+      background-color: #3498db;
+      color: #fff;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+      transform: translateY(-2px);
+    }
+
+    input[type="text"] {
+      background-color: #f0f4f8;
+      color: #333;
+      border: 1px solid #e0e0e0;
+    }
+
+    input[type="text"]::placeholder {
+      color: #b0bec5;
+    }
+
+    #inputSection {
+      display: none;
+    }
+
+    #result {
+      margin-top: 40px;
+      font-size: 1.4em;
+      font-weight: 500;
+      color: #27ae60;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="analyzer-container">
+    <div style="width: 100%; text-align: center;">
+      <h1>DEPARTMENT OF INFORMATION TECHNOLOGY</h1>
+      <h2>NATIONAL INSTITUTE OF TECHNOLOGY KARNATAKA,SURATHKAL-575025</h2>
+      
+      <p>
+        Information Assurance and Security(IT352)Course Project<br>
+        Title: An Effective Detection Approach for Phishing URL Using ResMLP<br>
+        Carried out by<br>
+           Gowtham(221it028)<br>
+           Narase Gowda B M(221it046)<br>
+        During Academic Session January - April 2025
+      </p>
+    </div>
+
+    <button id="enterInputBtn">Enter URL</button>
+
+    <div id="inputSection">
+      <form id="urlForm">
+        <input type="text" id="urlInput" placeholder="Paste URL to analyze" required>
+        <button type="submit">Analyze URL</button>
+      </form>
+    </div>
+
+    <button id="displayOutputBtn">Show Analysis Result</button>
+    <p id="result"></p>
+
+    <button id="storeOutputBtn">Save Analysis Result</button>
+  </div>
+
+  <script>
+    document.getElementById('enterInputBtn').addEventListener('click', function() {
+      const inputSec = document.getElementById('inputSection');
+      inputSec.style.display = (inputSec.style.display === 'none' || inputSec.style.display === '') ? 'block' : 'none';
+    });
+
+    let predictionResult = null;
+
+    document.getElementById('urlForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const url = document.getElementById('urlInput').value;
+      const formData = new FormData();
+      formData.append('url', url);
+
+      fetch('/predict', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          alert(data.error);
+          predictionResult = null;
+        } else if (data.result) {
+          predictionResult = { url, result: data.result };
+          alert("URL analyzed successfully!");
+        } else {
+          predictionResult = { url, result: "Analysis failed." };
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        predictionResult = { url, result: "Analysis failed." };
+      });
+    });
+
+    document.getElementById('displayOutputBtn').addEventListener('click', function() {
+      const resultElem = document.getElementById('result');
+      if (predictionResult && predictionResult.result) {
+        resultElem.innerText = "Analysis Result: " + predictionResult.result;
+      } else {
+        resultElem.innerText = "No analysis result available. Please enter and analyze a URL.";
+      }
+    });
+
+    document.getElementById('storeOutputBtn').addEventListener('click', function() {
+      if (!predictionResult || !predictionResult.result) {
+        alert("No analysis result to save. Please analyze a URL first.");
+        return;
+      }
+
+      fetch('/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(predictionResult)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.message) {
+          alert(data.message);
+        } else {
+          alert("Failed to save analysis result.");
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert("Failed to save analysis result.");
+      });
+    });
+  </script>
+</body>
+</html>
